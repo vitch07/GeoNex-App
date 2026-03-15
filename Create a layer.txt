@@ -1,0 +1,34 @@
+360 photos doesn't have a tab/icon to get into the mode itself
+
+in web
+- in map viewer the selected region is highlighted, but it shows all regions from each assignment which makes it messy, instead from each assignmnet I can open the map viewer and it would highlight only the specific region alloted for that assignment alone
+
+in mobile
+    in admin side
+    - create layer option button itself is not available
+    - not able to create, modify status, delete assignment
+    in field_worker side
+    - projects and dashboard tabs are not there
+    - not able to modify status of an assignment
+
+
+- allowing field data to be captured offline and should have online syncronization
+- i'm not able to delete photos uploaded
+
+
+everything in the web app is perfect and as expected, but there are a few issues in the mobile app that lags behind the web app
+implement all the features that are in the web to mobile app
+the mobile app should also have a working feature that allows field data to be captured offline in mobile and should have online syncronization automatically when the mobile gets internet
+give me a detailed readme file that contains all the features in the app, sample of how it will be used / usecase and maintain that readme after every changes in the app
+
+
+
+- when a layer is selected, only show vectors that are in that layer in the map
+- as a admin, when I create a layer, i should be able to add custom fields, datatype that i want the field_user to collect from their side of the app when they mark a vectors
+- if a boundary is defined for a project then the individual assignments inside the project should not have their region go outside of the boundaries
+- if i go to an assignment and click the show map icon, it should show just that assignment's selected region and features/vectors added from that assignment alone, not all the assignments in the project
+- when I move my cursor on top of the map, can you show the latitude and longitude of that place in bottom corner of the map
+- field user cannot add vectors outside their alloted boundaries
+- when a point is marked, Feature Properties should also show the latitude and longitude of that point
+- when a polygon is marked, Feature Properties should show the perimeter and the area
+- when a line is marked, Feature Properties should show the length of the line

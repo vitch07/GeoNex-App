@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "GeoNex",
+    "slug": "geonex-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#1e3a5f"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "GeoNex needs your location to collect field data",
+        "NSCameraUsageDescription": "GeoNex needs camera access to capture photos"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1e3a5f"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font"
+    ]
+  }
+}

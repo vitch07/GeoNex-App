@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npx --workspace=web vite build)",
+      "Bash(npx expo:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \":*)",
+      "Bash(taskkill //F //PID 35172)",
+      "Read(//c/Users/vitch/AppData/Local/Temp/claude/d--vishnu-projects-geonex/54a17f79-8df1-4834-b64c-a02adbd60cb0/tasks/**)",
+      "Bash(netstat -ano)",
+      "Bash(docker info:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker exec:*)",
+      "Bash(taskkill //F //PID 34472)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl -s -o /dev/null -w \"Web: HTTP %{http_code}\" http://localhost:5173)",
+      "Bash(curl -s -o /dev/null -w \"Expo: HTTP %{http_code}\" http://localhost:8081)",
+      "Bash(node -e \"console.log\\(require\\(''expo/package.json''\\).version\\)\")",
+      "Bash(taskkill //F //PID 16372)",
+      "Bash(taskkill //F //PID 33220)",
+      "Bash(node -e \"console.log\\(''SDK:'', require\\(''expo/package.json''\\).version\\)\")",
+      "Bash(npx tsc:*)",
+      "Bash(tasklist //FI 'IMAGENAME eq node.exe')",
+      "Bash(taskkill //F //PID 37080)",
+      "Bash(tasklist //FI 'WINDOWTITLE eq *node*' //FO CSV)",
+      "Bash(tasklist //FI 'IMAGENAME eq node.exe' //FO CSV)",
+      "Bash(CI=1 npx expo start --clear)",
+      "Bash(taskkill //F //PID 33380)",
+      "Bash(tasklist)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5175)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5174)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/api/auth/login)"
+    ]
+  }
+}
