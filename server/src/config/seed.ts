@@ -10,7 +10,7 @@ async function seed() {
     await pool.query(
       `INSERT INTO users (username, email, password_hash, role)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (email) DO NOTHING`,
+       ON CONFLICT (email) DO UPDATE SET password_hash = $3`,
       ['Admin', 'admin@geonex.com', adminPassword, 'admin']
     );
 
@@ -19,7 +19,7 @@ async function seed() {
     await pool.query(
       `INSERT INTO users (username, email, password_hash, role)
        VALUES ($1, $2, $3, $4)
-       ON CONFLICT (email) DO NOTHING`,
+       ON CONFLICT (email) DO UPDATE SET password_hash = $3`,
       ['Field User', 'field@geonex.com', fieldPassword, 'field_user']
     );
 

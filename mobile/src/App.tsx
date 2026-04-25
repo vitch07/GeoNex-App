@@ -15,6 +15,7 @@ import SyncScreen from './screens/SyncScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import ProjectsScreen from './screens/ProjectsScreen';
 import UsersScreen from './screens/UsersScreen';
+import { startAutoSync, stopAutoSync } from './services/SyncService';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -26,6 +27,15 @@ function AssignmentsStack() {
       <Stack.Screen name="Map" component={MapScreen} />
       <Stack.Screen name="PhotoCapture" component={PhotoCaptureScreen} />
       <Stack.Screen name="PhotoViewer" component={PhotoViewerScreen} />
+    </Stack.Navigator>
+  );
+}
+
+function ProjectsStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="ProjectsList" component={ProjectsScreen} />
+      <Stack.Screen name="Map" component={MapScreen} />
     </Stack.Navigator>
   );
 }
@@ -68,7 +78,7 @@ function AdminTabs({ onLogout }: { onLogout: () => void }) {
       />
       <Tab.Screen
         name="Projects"
-        component={ProjectsScreen}
+        component={ProjectsStack}
         options={{
           tabBarLabel: 'Projects',
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📁</Text>,
@@ -143,6 +153,14 @@ function FieldUserTabs({ onLogout }: { onLogout: () => void }) {
       }}
     >
       <Tab.Screen
+        name="Dashboard"
+        component={DashboardScreen}
+        options={{
+          tabBarLabel: 'Home',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📊</Text>,
+        }}
+      />
+      <Tab.Screen
         name="Assignments"
         component={AssignmentsStack}
         options={{
@@ -158,6 +176,14 @@ function FieldUserTabs({ onLogout }: { onLogout: () => void }) {
           tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>🗺️</Text>,
         }}
         initialParams={{}}
+      />
+      <Tab.Screen
+        name="Projects"
+        component={ProjectsStack}
+        options={{
+          tabBarLabel: 'Projects',
+          tabBarIcon: ({ color }) => <Text style={{ color, fontSize: 20 }}>📁</Text>,
+        }}
       />
       <Tab.Screen
         name="Sync"
@@ -194,13 +220,27 @@ export default function App() {
     checkAuth();
   }, [checkAuth]);
 
-  // Listen for app state changes to re-check auth (handles logout from SyncScreen)
+  // Start/stop auto-sync based on login state
   useEffect(() => {
-    const sub = AppState.addEventListener('change', () => {
-      // Re-check on resume
+    if (isLoggedIn) {
+      const cleanup = startAutoSync();
+      return () => {
+        cleanup();
+      };
+    } else {
+      stopAutoSync();
+    }
+  }, [isLoggedIn]);
+
+  // Re-sync when app comes back to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && isLoggedIn) {
+        startAutoSync();
+      }
     });
     return () => sub.remove();
-  }, []);
+  }, [isLoggedIn]);
 
   const handleLogin = async () => {
     const userStr = await AsyncStorage.getItem('geonex_user');
@@ -214,6 +254,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    stopAutoSync();
     setIsLoggedIn(false);
     setUserRole('field_user');
   };

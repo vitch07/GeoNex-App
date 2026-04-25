@@ -31,8 +31,10 @@ export default function DashboardScreen() {
         api.get<any>('/assignments'),
       ]);
 
-      const projects = Array.isArray(projectsRes) ? projectsRes : (projectsRes.data || []);
-      const assignments = Array.isArray(assignmentsRes) ? assignmentsRes : (assignmentsRes.data || []);
+      const projectsData = projectsRes?.data !== undefined ? projectsRes.data : projectsRes;
+      const assignmentsData = assignmentsRes?.data !== undefined ? assignmentsRes.data : assignmentsRes;
+      const projects = Array.isArray(projectsData) ? projectsData : [];
+      const assignments = Array.isArray(assignmentsData) ? assignmentsData : [];
 
       setStats({
         projects: projects.length,

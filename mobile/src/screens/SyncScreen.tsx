@@ -4,13 +4,13 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  FlatList,
   ActivityIndicator,
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { syncAssignment, syncAllData, isOnline, SyncResult } from '../services/SyncService';
-import { getCachedAssignments, getUnsyncedFeatures } from '../database/LocalDatabase';
+import NetInfo from '@react-native-community/netinfo';
+import { syncAssignment, syncAllData, syncPhotos, isOnline, SyncResult } from '../services/SyncService';
+import { getCachedAssignments, getUnsyncedFeatures, getDatabase } from '../database/LocalDatabase';
 
 interface SyncScreenProps {
   onLogout?: () => void;
@@ -21,12 +21,23 @@ export default function SyncScreen({ onLogout }: SyncScreenProps = {}) {
   const [syncing, setSyncing] = useState(false);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [unsyncedCount, setUnsyncedCount] = useState(0);
+  const [pendingPhotos, setPendingPhotos] = useState(0);
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
 
   useEffect(() => {
     loadStatus();
+
+    // Listen for network changes
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      setOnline(state.isConnected === true && state.isInternetReachable !== false);
+    });
+
     const interval = setInterval(loadStatus, 10000);
-    return () => clearInterval(interval);
+    return () => {
+      unsubscribe();
+      clearInterval(interval);
+    };
   }, []);
 
   const loadStatus = async () => {
@@ -38,6 +49,15 @@ export default function SyncScreen({ onLogout }: SyncScreenProps = {}) {
 
     const unsynced = await getUnsyncedFeatures();
     setUnsyncedCount(unsynced.length);
+
+    // Count pending photos
+    try {
+      const database = await getDatabase();
+      const rows = await database.getAllAsync('SELECT COUNT(*) as cnt FROM local_photos WHERE uploaded = 0');
+      setPendingPhotos((rows[0] as any)?.cnt || 0);
+    } catch {
+      setPendingPhotos(0);
+    }
   };
 
   const handleSyncAll = async () => {
@@ -63,20 +83,28 @@ export default function SyncScreen({ onLogout }: SyncScreenProps = {}) {
         totalConflicts += result.conflicts;
       }
 
+      // Upload pending photos
+      const photosUploaded = await syncPhotos();
+
       setLastResult({
         pulled: totalPulled,
         pushed: totalPushed,
         conflicts: totalConflicts,
+        photosUploaded,
         success: true,
       });
 
       await loadStatus();
-      Alert.alert('Sync Complete', `Pushed: ${totalPushed}, Pulled: ${totalPulled}, Conflicts: ${totalConflicts}`);
+      Alert.alert(
+        'Sync Complete',
+        `Pushed: ${totalPushed}, Pulled: ${totalPulled}, Conflicts: ${totalConflicts}${photosUploaded > 0 ? `, Photos: ${photosUploaded}` : ''}`
+      );
     } catch (error: any) {
       setLastResult({
         pulled: 0,
         pushed: 0,
         conflicts: 0,
+        photosUploaded: 0,
         success: false,
         error: error.message,
       });
@@ -110,13 +138,25 @@ export default function SyncScreen({ onLogout }: SyncScreenProps = {}) {
       </View>
 
       <View style={styles.body}>
+        {/* Auto-sync indicator */}
+        <View style={styles.autoSyncBadge}>
+          <View style={[styles.autoSyncDot, { backgroundColor: '#16a34a' }]} />
+          <Text style={styles.autoSyncText}>
+            Auto-sync active — syncs automatically when online
+          </Text>
+        </View>
+
         {/* Sync status card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Sync Status</Text>
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{unsyncedCount}</Text>
-              <Text style={styles.statLabel}>Pending Changes</Text>
+              <Text style={styles.statLabel}>Pending Features</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{pendingPhotos}</Text>
+              <Text style={styles.statLabel}>Pending Photos</Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statValue}>{assignments.length}</Text>
@@ -150,6 +190,7 @@ export default function SyncScreen({ onLogout }: SyncScreenProps = {}) {
               <>
                 <Text style={styles.resultText}>Features Pushed: {lastResult.pushed}</Text>
                 <Text style={styles.resultText}>Features Pulled: {lastResult.pulled}</Text>
+                <Text style={styles.resultText}>Photos Uploaded: {lastResult.photosUploaded}</Text>
                 <Text style={styles.resultText}>Conflicts: {lastResult.conflicts}</Text>
               </>
             ) : (
@@ -182,6 +223,18 @@ const styles = StyleSheet.create({
   statusDot: { width: 10, height: 10, borderRadius: 5, marginRight: 6 },
   statusText: { fontSize: 13, color: '#6b7280' },
   body: { padding: 16 },
+  autoSyncBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  autoSyncDot: { width: 8, height: 8, borderRadius: 4, marginRight: 8 },
+  autoSyncText: { fontSize: 13, color: '#166534', flex: 1 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -194,7 +247,7 @@ const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', marginBottom: 16 },
   statItem: { flex: 1, alignItems: 'center' },
   statValue: { fontSize: 28, fontWeight: '700', color: '#2563eb' },
-  statLabel: { fontSize: 12, color: '#6b7280', marginTop: 4 },
+  statLabel: { fontSize: 11, color: '#6b7280', marginTop: 4, textAlign: 'center' },
   syncButton: {
     backgroundColor: '#2563eb',
     padding: 14,

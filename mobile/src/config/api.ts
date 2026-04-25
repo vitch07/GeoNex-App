@@ -3,9 +3,9 @@ import { Platform } from 'react-native';
 
 // For Expo Go: use your machine's Wi-Fi IP so the phone can reach the server
 const DEV_API_URL = Platform.select({
-  android: 'http://10.16.0.108:3000/api',
-  ios: 'http://10.16.0.108:3000/api',
-  default: 'http://10.16.0.108:3000/api',
+  android: 'http://172.20.10.6:3000/api',
+  ios: 'http://172.20.10.6:3000/api',
+  default: 'http://172.20.10.6:3000/api',
 });
 
 const API_BASE_URL = __DEV__ ? DEV_API_URL : 'https://your-server.com/api';

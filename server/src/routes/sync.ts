@@ -16,10 +16,14 @@ router.get('/pull', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     // Get assignment area to filter features
-    const assignmentResult = await query(
-      'SELECT area FROM work_assignments WHERE id = $1 AND assigned_to = $2',
-      [assignment_id, req.user!.id]
-    );
+    // Admins can pull any assignment; field users only their own
+    const assignmentQuery = req.user!.role === 'admin'
+      ? 'SELECT area FROM work_assignments WHERE id = $1'
+      : 'SELECT area FROM work_assignments WHERE id = $1 AND assigned_to = $2';
+    const assignmentParams = req.user!.role === 'admin'
+      ? [assignment_id]
+      : [assignment_id, req.user!.id];
+    const assignmentResult = await query(assignmentQuery, assignmentParams);
     if (assignmentResult.rows.length === 0) {
       res.status(404).json({ success: false, error: 'Assignment not found' });
       return;

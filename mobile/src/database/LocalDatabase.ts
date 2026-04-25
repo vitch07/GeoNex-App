@@ -196,14 +196,29 @@ export async function getLocalPhotos(featureId: string): Promise<any[]> {
   }));
 }
 
+// Delete a local photo
+export async function deleteLocalPhoto(id: string): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync('DELETE FROM local_photos WHERE id = ?', id);
+}
+
 // Assignment cache
 export async function cacheAssignments(assignments: any[]): Promise<void> {
   const database = await getDatabase();
-  await database.runAsync('DELETE FROM cached_assignments');
+  // Use INSERT OR REPLACE to avoid UNIQUE constraint errors from concurrent calls
   for (const a of assignments) {
     await database.runAsync(
-      'INSERT INTO cached_assignments (id, project_id, project_name, area_geojson, status, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      'INSERT OR REPLACE INTO cached_assignments (id, project_id, project_name, area_geojson, status, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
       a.id, a.project_id, a.project_name, JSON.stringify(a.area), a.status, a.due_date, a.created_at
+    );
+  }
+  // Remove assignments that no longer exist on server
+  if (assignments.length > 0) {
+    const ids = assignments.map((a) => a.id);
+    const placeholders = ids.map(() => '?').join(',');
+    await database.runAsync(
+      `DELETE FROM cached_assignments WHERE id NOT IN (${placeholders})`,
+      ...ids
     );
   }
 }
@@ -220,11 +235,18 @@ export async function getCachedAssignments(): Promise<any[]> {
 // Layer cache
 export async function cacheLayers(layers: any[]): Promise<void> {
   const database = await getDatabase();
-  await database.runAsync('DELETE FROM cached_layers');
   for (const l of layers) {
     await database.runAsync(
-      'INSERT INTO cached_layers (id, project_id, name, geometry_type, schema_json) VALUES (?, ?, ?, ?, ?)',
+      'INSERT OR REPLACE INTO cached_layers (id, project_id, name, geometry_type, schema_json) VALUES (?, ?, ?, ?, ?)',
       l.id, l.project_id, l.name, l.geometry_type, JSON.stringify(l.schema)
+    );
+  }
+  if (layers.length > 0) {
+    const ids = layers.map((l) => l.id);
+    const placeholders = ids.map(() => '?').join(',');
+    await database.runAsync(
+      `DELETE FROM cached_layers WHERE id NOT IN (${placeholders})`,
+      ...ids
     );
   }
 }

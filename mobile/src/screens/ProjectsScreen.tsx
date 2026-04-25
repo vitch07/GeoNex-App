@@ -13,7 +13,11 @@ import {
 import api from '../config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export default function ProjectsScreen() {
+interface ProjectsScreenProps {
+  navigation?: any;
+}
+
+export default function ProjectsScreen({ navigation }: ProjectsScreenProps) {
   const [projects, setProjects] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -34,7 +38,8 @@ export default function ProjectsScreen() {
   const loadProjects = async () => {
     try {
       const res = await api.get<any>('/projects');
-      setProjects(Array.isArray(res) ? res : (res.data || []));
+      const data = res?.data !== undefined ? res.data : res;
+      setProjects(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Failed to load projects:', error);
     }
@@ -80,6 +85,12 @@ export default function ProjectsScreen() {
     ]);
   };
 
+  const openMap = (project: any) => {
+    if (navigation) {
+      navigation.navigate('Map', { project });
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -103,14 +114,22 @@ export default function ProjectsScreen() {
             <Text style={styles.projectDate}>
               Created: {new Date(item.created_at).toLocaleDateString()}
             </Text>
-            {isAdmin && (
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => deleteProject(item.id, item.name)}
-              >
-                <Text style={styles.deleteBtnText}>Delete</Text>
-              </TouchableOpacity>
+            {item.boundary && (
+              <Text style={styles.boundaryBadge}>Boundary defined</Text>
             )}
+            <View style={styles.cardActions}>
+              <TouchableOpacity style={styles.mapBtn} onPress={() => openMap(item)}>
+                <Text style={styles.mapBtnText}>Open Map</Text>
+              </TouchableOpacity>
+              {isAdmin && (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => deleteProject(item.id, item.name)}
+                >
+                  <Text style={styles.deleteBtnText}>Delete</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         )}
         ListEmptyComponent={
@@ -182,10 +201,37 @@ const styles = StyleSheet.create({
   projectName: { fontSize: 17, fontWeight: '600', color: '#111827', marginBottom: 4 },
   projectDesc: { fontSize: 14, color: '#6b7280', marginBottom: 8 },
   projectDate: { fontSize: 12, color: '#9ca3af' },
+  boundaryBadge: {
+    fontSize: 12,
+    color: '#166534',
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
+    marginTop: 6,
+    overflow: 'hidden',
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    paddingTop: 12,
+  },
+  mapBtn: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  mapBtnText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   deleteBtn: {
-    marginTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: '#fee2e2',
-    paddingVertical: 6,
     borderRadius: 6,
     alignItems: 'center',
   },

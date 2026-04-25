@@ -27,6 +27,12 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled', color: '#dc2626' },
 ];
 
+// Helper to extract data from API response
+function extractData(response: any): any {
+  if (response && response.data !== undefined) return response.data;
+  return response;
+}
+
 export default function AssignmentsScreen({ navigation }: AssignmentsScreenProps) {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,6 +40,15 @@ export default function AssignmentsScreen({ navigation }: AssignmentsScreenProps
   const [isAdmin, setIsAdmin] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [statusTarget, setStatusTarget] = useState<any>(null);
+  // Create assignment state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [createForm, setCreateForm] = useState({ project_id: '', assigned_to: '', due_date: '' });
+  // Edit assignment state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editTarget, setEditTarget] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ assigned_to: '', due_date: '' });
 
   useEffect(() => {
     loadAssignments();
@@ -52,10 +67,10 @@ export default function AssignmentsScreen({ navigation }: AssignmentsScreenProps
 
       if (networkOnline) {
         const response = await api.get<any>('/assignments');
-        // Server returns { success, data: [...] }
-        const data = Array.isArray(response) ? response : (response.data || []);
-        setAssignments(data);
-        await cacheAssignments(data);
+        const data = extractData(response);
+        const list = Array.isArray(data) ? data : [];
+        setAssignments(list);
+        await cacheAssignments(list);
       } else {
         const cached = await getCachedAssignments();
         setAssignments(cached);
@@ -101,6 +116,84 @@ export default function AssignmentsScreen({ navigation }: AssignmentsScreenProps
     ]);
   };
 
+  const openCreateModal = async () => {
+    try {
+      const [pRes, uRes] = await Promise.all([
+        api.get<any>('/projects'),
+        api.get<any>('/auth/users').catch(() => ({ data: [] })),
+      ]);
+      setProjects(Array.isArray(extractData(pRes)) ? extractData(pRes) : []);
+      setUsers(Array.isArray(extractData(uRes)) ? extractData(uRes) : []);
+      setCreateForm({ project_id: '', assigned_to: '', due_date: '' });
+      setShowCreateModal(true);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to load data');
+    }
+  };
+
+  const createAssignment = async () => {
+    if (!createForm.project_id) {
+      Alert.alert('Error', 'Please select a project');
+      return;
+    }
+    if (!createForm.assigned_to) {
+      Alert.alert('Error', 'Please select a user to assign to');
+      return;
+    }
+    try {
+      // For mobile, we create assignment without area (admin can draw area on web)
+      // Or use the project boundary as default area
+      const project = projects.find((p) => p.id === createForm.project_id);
+      const area = project?.boundary || {
+        type: 'Polygon',
+        coordinates: [[[78.0, 20.0], [79.0, 20.0], [79.0, 21.0], [78.0, 21.0], [78.0, 20.0]]],
+      };
+
+      await api.post('/assignments', {
+        project_id: createForm.project_id,
+        assigned_to: createForm.assigned_to,
+        area,
+        due_date: createForm.due_date || undefined,
+      });
+      setShowCreateModal(false);
+      await loadAssignments();
+      Alert.alert('Success', 'Assignment created');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create assignment');
+    }
+  };
+
+  const openEditModal = async (assignment: any) => {
+    try {
+      const uRes = await api.get<any>('/auth/users').catch(() => ({ data: [] }));
+      setUsers(Array.isArray(extractData(uRes)) ? extractData(uRes) : []);
+      setEditTarget(assignment);
+      setEditForm({
+        assigned_to: assignment.assigned_to || '',
+        due_date: assignment.due_date ? assignment.due_date.split('T')[0] : '',
+      });
+      setShowEditModal(true);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to load users');
+    }
+  };
+
+  const updateAssignment = async () => {
+    if (!editTarget) return;
+    try {
+      const updateData: any = {};
+      if (editForm.assigned_to) updateData.assigned_to = editForm.assigned_to;
+      if (editForm.due_date) updateData.due_date = editForm.due_date;
+      await api.put(`/assignments/${editTarget.id}`, updateData);
+      setShowEditModal(false);
+      setEditTarget(null);
+      await loadAssignments();
+      Alert.alert('Success', 'Assignment updated');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     return STATUS_OPTIONS.find((s) => s.value === status)?.color || '#6b7280';
   };
@@ -140,12 +233,20 @@ export default function AssignmentsScreen({ navigation }: AssignmentsScreenProps
           <Text style={styles.statusBtnText}>Status</Text>
         </TouchableOpacity>
         {isAdmin && (
-          <TouchableOpacity
-            style={styles.cardDeleteBtn}
-            onPress={() => deleteAssignment(item.id)}
-          >
-            <Text style={styles.cardDeleteBtnText}>Delete</Text>
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={styles.editBtn}
+              onPress={() => openEditModal(item)}
+            >
+              <Text style={styles.editBtnText}>Edit</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cardDeleteBtn}
+              onPress={() => deleteAssignment(item.id)}
+            >
+              <Text style={styles.cardDeleteBtnText}>Delete</Text>
+            </TouchableOpacity>
+          </>
         )}
       </View>
     </View>
@@ -157,11 +258,18 @@ export default function AssignmentsScreen({ navigation }: AssignmentsScreenProps
         <Text style={styles.title}>
           {isAdmin ? 'All Assignments' : 'My Assignments'}
         </Text>
-        {!online && (
-          <View style={styles.offlineBadge}>
-            <Text style={styles.offlineText}>Offline</Text>
-          </View>
-        )}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          {!online && (
+            <View style={styles.offlineBadge}>
+              <Text style={styles.offlineText}>Offline</Text>
+            </View>
+          )}
+          {isAdmin && online && (
+            <TouchableOpacity style={styles.addBtn} onPress={openCreateModal}>
+              <Text style={styles.addBtnText}>+ New</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <FlatList
@@ -215,6 +323,106 @@ export default function AssignmentsScreen({ navigation }: AssignmentsScreenProps
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Create Assignment modal */}
+      <Modal visible={showCreateModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.formModal}>
+            <Text style={styles.modalTitle}>Create Assignment</Text>
+            <ScrollView>
+              <Text style={styles.formLabel}>Project</Text>
+              {projects.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  style={[styles.optionBtn, createForm.project_id === p.id && styles.optionBtnActive]}
+                  onPress={() => setCreateForm({ ...createForm, project_id: p.id })}
+                >
+                  <Text style={[styles.optionBtnText, createForm.project_id === p.id && styles.optionBtnTextActive]}>
+                    {p.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              <Text style={[styles.formLabel, { marginTop: 16 }]}>Assign To</Text>
+              {users.map((u) => (
+                <TouchableOpacity
+                  key={u.id}
+                  style={[styles.optionBtn, createForm.assigned_to === u.id && styles.optionBtnActive]}
+                  onPress={() => setCreateForm({ ...createForm, assigned_to: u.id })}
+                >
+                  <Text style={[styles.optionBtnText, createForm.assigned_to === u.id && styles.optionBtnTextActive]}>
+                    {u.username} ({u.role})
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              <Text style={[styles.formLabel, { marginTop: 16 }]}>Due Date</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="YYYY-MM-DD"
+                value={createForm.due_date}
+                onChangeText={(v) => setCreateForm({ ...createForm, due_date: v })}
+                placeholderTextColor="#9ca3af"
+              />
+
+              <Text style={styles.formHint}>
+                Note: Assignment area will use the project boundary. Use the web app to draw custom assignment areas.
+              </Text>
+            </ScrollView>
+            <View style={styles.formActions}>
+              <TouchableOpacity style={styles.cancelFormBtn} onPress={() => setShowCreateModal(false)}>
+                <Text style={styles.cancelFormText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.submitFormBtn} onPress={createAssignment}>
+                <Text style={styles.submitFormText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Assignment modal */}
+      <Modal visible={showEditModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.formModal}>
+            <Text style={styles.modalTitle}>Edit Assignment</Text>
+            {editTarget && (
+              <Text style={styles.statusModalSub}>{editTarget.project_name}</Text>
+            )}
+            <ScrollView>
+              <Text style={styles.formLabel}>Reassign To</Text>
+              {users.map((u) => (
+                <TouchableOpacity
+                  key={u.id}
+                  style={[styles.optionBtn, editForm.assigned_to === u.id && styles.optionBtnActive]}
+                  onPress={() => setEditForm({ ...editForm, assigned_to: u.id })}
+                >
+                  <Text style={[styles.optionBtnText, editForm.assigned_to === u.id && styles.optionBtnTextActive]}>
+                    {u.username} ({u.role})
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
+              <Text style={[styles.formLabel, { marginTop: 16 }]}>Due Date</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="YYYY-MM-DD"
+                value={editForm.due_date}
+                onChangeText={(v) => setEditForm({ ...editForm, due_date: v })}
+                placeholderTextColor="#9ca3af"
+              />
+            </ScrollView>
+            <View style={styles.formActions}>
+              <TouchableOpacity style={styles.cancelFormBtn} onPress={() => { setShowEditModal(false); setEditTarget(null); }}>
+                <Text style={styles.cancelFormText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.submitFormBtn} onPress={updateAssignment}>
+                <Text style={styles.submitFormText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -232,6 +440,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e7eb',
   },
   title: { fontSize: 22, fontWeight: '700', color: '#111827' },
+  addBtn: { backgroundColor: '#2563eb', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 6 },
+  addBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   offlineBadge: {
     backgroundColor: '#fee2e2',
     paddingHorizontal: 10,
@@ -281,6 +491,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statusBtnText: { color: '#2563eb', fontWeight: '600', fontSize: 13 },
+  editBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#fef3c7',
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  editBtnText: { color: '#92400e', fontWeight: '600', fontSize: 13 },
   cardDeleteBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -322,4 +540,44 @@ const styles = StyleSheet.create({
   },
   statusOptionText: { fontSize: 15, color: '#374151', fontWeight: '500', flex: 1 },
   currentLabel: { fontSize: 12, fontWeight: '600' },
+  // Form modal styles
+  formModal: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  formLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
+  formInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: '#111827',
+  },
+  formHint: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    marginTop: 16,
+  },
+  optionBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 6,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  optionBtnActive: { backgroundColor: '#dbeafe', borderColor: '#2563eb' },
+  optionBtnText: { fontSize: 14, color: '#374151', fontWeight: '500' },
+  optionBtnTextActive: { color: '#2563eb', fontWeight: '700' },
+  formActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  cancelFormBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#e5e7eb', alignItems: 'center' },
+  cancelFormText: { fontWeight: '600', color: '#374151' },
+  submitFormBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#2563eb', alignItems: 'center' },
+  submitFormText: { fontWeight: '600', color: '#fff' },
 });
