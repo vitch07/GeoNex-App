@@ -1,3 +1,8 @@
+# UI 
+<img width="1920" height="870" alt="Screenshot (144)" src="https://github.com/user-attachments/assets/76d345de-4afa-4bcf-9439-56d1ec6e8b29" />
+<img width="1591" height="727" alt="image" src="https://github.com/user-attachments/assets/67eee9d9-74c9-4615-9f23-44404b36f8af" />
+
+
 # GeoNex — Mobile GIS Field Data Collection Platform
 
 A full-stack GIS platform for field data collection with offline capability. Work is assigned via a Web GIS application, collected on mobile devices (online or offline), and synced back to a central PostgreSQL/PostGIS database.
